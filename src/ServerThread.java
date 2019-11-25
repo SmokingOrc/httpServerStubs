@@ -1,12 +1,14 @@
 import java.io.*;
-import java.net.ServerSocket;
 import java.net.Socket;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringTokenizer;
+
+import static java.lang.Thread.sleep;
 
 
 public class ServerThread implements Runnable {
@@ -74,7 +76,8 @@ public class ServerThread implements Runnable {
 					if (cmd.get(1).equals("/")){
 						File file = new File(String.valueOf(documentRoot), "\\Index.html");
 						int fileLength = (int) file.length();
-						System.out.println("in / case "+ file.toString());
+						protocol(cmd.get(0) +" "+ file.toString());
+
 						try {
 							byte[] fileData = readFileData(file, fileLength);
 							os.write(fileData, 0, fileLength);
@@ -85,6 +88,8 @@ public class ServerThread implements Runnable {
 					} else{
 						File file = new File(String.valueOf(documentRoot), cmd.get(1));
 						int fileLength = (int) file.length();
+						protocol(cmd.get(0) +" "+ file.toString());
+
 						try {
 							byte[] fileData = readFileData(file, fileLength);
 							os.write(fileData, 0, fileLength);
@@ -94,18 +99,29 @@ public class ServerThread implements Runnable {
 						}
 
 					}
-					log(cmd.get(0) +" "+ cmd.get(1));
-					System.out.println("in Get case");
-
-				/*	try {
-						os.write(index.getBytes());
-					} catch (IOException e) {
-						e.printStackTrace();
-					}*/
 					closeConnection();
 					break;
 				default: closeConnection();// always closing Connection
 
+			}
+
+			//show Protocol all 5 seconds
+			while (true) {
+				try {
+					sleep(5000);
+				} catch (InterruptedException e) {
+					e.printStackTrace();
+				}
+				if (Files.exists(Paths.get("protocol.txt"))) {
+					try {
+						List<String> readProtocol = Files.readAllLines(Paths.get("protocol.txt"));
+						for(String log : readProtocol){
+							System.out.println(log);
+						}
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+				}
 			}
 		} while (connected);    //do until connection is closed
 	}
@@ -152,7 +168,8 @@ public class ServerThread implements Runnable {
 	/**
 	 * @param logString Synchronized method to write String into logfile
 	 */
-	private void log(String logString) {
+	private void protocol(String logString) {
+		System.out.println(logString);
 		if (logging) {
 			Timestamp timestamp = new Timestamp(System.currentTimeMillis());
 			//Logging timestamp, incoming request, InetAdress, Port

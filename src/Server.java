@@ -28,6 +28,12 @@ public class Server {
 					Socket ConnectionSocket = srvSocket.accept();
 					System.out.println("Server got new request from client with IP: " + ConnectionSocket.getRemoteSocketAddress() + " and port: " + ConnectionSocket.getPort());
 					if(ConnectionSocket != null) new Thread(new ServerThread(ConnectionSocket, documentRoot, logging )).start();
+					//Create logging Thread if logging activated
+					if(logging){
+						loggingThread = new LoggingThread();
+						loggingThread.start();
+						System.out.println("protocol started");
+					}
 
 				}
 				catch (IOException e) {
@@ -39,11 +45,7 @@ public class Server {
 			e.printStackTrace();
 		}
 
-		//Create logging Thread if logging activated
-		if(logging){
-			loggingThread = new LoggingThread();
-			loggingThread.start();
-		}
+
 
 	}
 

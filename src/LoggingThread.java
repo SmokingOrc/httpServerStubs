@@ -7,9 +7,9 @@ public class LoggingThread extends Thread {
 
     public void run(){
         //Create Logfile if not exists
-        if(!Files.exists(Paths.get("logfile.txt"))){
+        if(!Files.exists(Paths.get("protocol.txt"))){
             try {
-                Files.createFile(Paths.get("logfile.txt"));
+                Files.createFile(Paths.get("protocol.txt"));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -34,7 +34,7 @@ public class LoggingThread extends Thread {
      */
     private void writeLogToFile(String logString){
         try {
-            Files.write(Paths.get("logfile.txt"), logString.getBytes(), StandardOpenOption.APPEND);
+            Files.write(Paths.get("protocol.txt"), logString.getBytes(), StandardOpenOption.APPEND);
         }catch (IOException e) {
             e.printStackTrace();
         }
