@@ -23,16 +23,14 @@ public class ServerThread implements Runnable {
 	private boolean connected = true;
 
 
-	Socket ClientSocket;
-	BufferedReader is;
-	OutputStream os;
+	private Socket ClientSocket;
+	private BufferedReader is;
+	private OutputStream os;
 
 	public ServerThread(Socket ClientSocket, String documentRoot, boolean logging) {
 		this.ClientSocket = ClientSocket;
 		this.documentRoot = Paths.get(documentRoot);
 		this.logging = logging;
-
-		// TODO Implement hand over of Socket
 
 	}
 	
@@ -73,10 +71,10 @@ public class ServerThread implements Runnable {
 			//Switch read in Command from Tokens
 			switch (cmd.get(0)){
 				case "GET":// in case of GET Command
-					if (cmd.get(1).equals("/")){
+					if (cmd.get(1).equals("/")){ // If request is index.html
 						File file = new File(String.valueOf(documentRoot), "\\Index.html");
 						int fileLength = (int) file.length();
-						protocol(cmd.get(0) +" "+ file.toString());
+						protocol(cmd.get(0) +" "+ file.toString()); // Logging for Protocol
 
 						try {
 							byte[] fileData = readFileData(file, fileLength);
@@ -85,44 +83,31 @@ public class ServerThread implements Runnable {
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
-					} else{
+					} else{ //Checking GET plus requested FILEPATH
 						File file = new File(String.valueOf(documentRoot), cmd.get(1));
 						int fileLength = (int) file.length();
-						protocol(cmd.get(0) +" "+ file.toString());
 
-						try {
-							byte[] fileData = readFileData(file, fileLength);
-							os.write(fileData, 0, fileLength);
-							os.flush();
-						} catch (IOException e) {
-							e.printStackTrace();
+						protocol(cmd.get(0) +" "+ file.toString()); //Logging for Protocol
+						if (isValidFile(file.toString())) {
+							try {
+								byte[] fileData = readFileData(file, fileLength);
+								os.write(fileData, 0, fileLength);
+								os.flush();
+							} catch (IOException e) {
+								e.printStackTrace();
+							}
+						}else {
+							closeConnection();
 						}
-
 					}
 					closeConnection();
-					break;
+					break; // Ending GET
 				default: closeConnection();// always closing Connection
 
 			}
 
-			//show Protocol all 5 seconds
-			while (true) {
-				try {
-					sleep(5000);
-				} catch (InterruptedException e) {
-					e.printStackTrace();
-				}
-				if (Files.exists(Paths.get("protocol.txt"))) {
-					try {
-						List<String> readProtocol = Files.readAllLines(Paths.get("protocol.txt"));
-						for(String log : readProtocol){
-							System.out.println(log);
-						}
-					} catch (IOException e) {
-						e.printStackTrace();
-					}
-				}
-			}
+			//show Protocol all 5 mins
+			//showProtocol();
 		} while (connected);    //do until connection is closed
 	}
 
@@ -163,6 +148,14 @@ public class ServerThread implements Runnable {
 	}
 
 		// isValid funktion --> bsp. "/images/bild.png" ersetzen / durch "\\"
+	public boolean isValidFile (String valid) {
+		if (valid == null) return false;
+			if(Files.exists(Paths.get(valid))) {
+			return true;
+			}
+		return false;
+	}
+
 
 
 	/**
