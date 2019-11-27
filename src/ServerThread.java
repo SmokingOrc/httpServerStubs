@@ -21,23 +21,22 @@ public class ServerThread implements Runnable {
 	private Path documentRoot;
 	private boolean logging;
 	private boolean connected = true;
-
+	private static LoggingThread loggingThread;
 
 	private Socket ClientSocket;
 	private BufferedReader is;
 	private OutputStream os;
 
-	public ServerThread(Socket ClientSocket, String documentRoot, boolean logging) {
+	public ServerThread(Socket ClientSocket, LoggingThread loggingThread, String documentRoot, boolean logging) {
 		this.ClientSocket = ClientSocket;
 		this.documentRoot = Paths.get(documentRoot);
 		this.logging = logging;
-
+		this.loggingThread = loggingThread;
 	}
 	
 	public void run() {
 		// TODO Implement HTTP v0.9, just GET - the available files to the server are given by ServerFiles.files
 		String readCommand="";
-
 
 		System.out.println("Client " + ClientSocket.getInetAddress() + " on port " + ClientSocket.getPort() + " connected.");
 		//Doing the request/response mechanism
@@ -64,9 +63,8 @@ public class ServerThread implements Runnable {
 
 				cmd.add(st.nextToken());
 			}
-			System.out.println(cmd.get(0));
-			System.out.println(cmd.get(1));
-
+			//System.out.println(cmd.get(0));
+			//System.out.println(cmd.get(1));
 
 			//Switch read in Command from Tokens
 			switch (cmd.get(0)){
@@ -74,9 +72,10 @@ public class ServerThread implements Runnable {
 					if (cmd.get(1).equals("/")){ // If request is index.html
 						File file = new File(String.valueOf(documentRoot), "\\Index.html");
 						int fileLength = (int) file.length();
-						protocol(cmd.get(0) +" "+ file.toString()); // Logging for Protocol
+						protocol(cmd.get(0) +" "+ documentRoot+cmd.get(1)); // Logging for Protocol
 
 						try {
+							// readFIle for Streaming
 							byte[] fileData = readFileData(file, fileLength);
 							os.write(fileData, 0, fileLength);
 							os.flush();
@@ -88,17 +87,18 @@ public class ServerThread implements Runnable {
 						int fileLength = (int) file.length();
 
 						protocol(cmd.get(0) +" "+ file.toString()); //Logging for Protocol
-						if (isValidFile(file.toString())) {
+						//if (isValidFile(file.toString())) {		// isValid für HTTP >0.9
 							try {
+								// readFIle for Streaming
 								byte[] fileData = readFileData(file, fileLength);
 								os.write(fileData, 0, fileLength);
 								os.flush();
 							} catch (IOException e) {
 								e.printStackTrace();
 							}
-						}else {
-							closeConnection();
-						}
+						//}else {
+						//	closeConnection();
+						//}
 					}
 					closeConnection();
 					break; // Ending GET
@@ -106,8 +106,6 @@ public class ServerThread implements Runnable {
 
 			}
 
-			//show Protocol all 5 mins
-			//showProtocol();
 		} while (connected);    //do until connection is closed
 	}
 
@@ -146,9 +144,10 @@ public class ServerThread implements Runnable {
 
 		return fileData;
 	}
-
-		// isValid funktion --> bsp. "/images/bild.png" ersetzen / durch "\\"
-	public boolean isValidFile (String valid) {
+	/**
+		IsValid -Funktion für beginn HTTP: 1.0// isValid funktion --> bsp. "/images/bild.png" ersetzen / durch "\\"
+	*/
+	 public boolean isValidFile (String valid) {
 		if (valid == null) return false;
 			if(Files.exists(Paths.get(valid))) {
 			return true;
