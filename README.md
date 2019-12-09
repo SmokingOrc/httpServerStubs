@@ -9,5 +9,5 @@
 	Server<br/>
 	ServerThread<br/>
 	LoggingThread<br/>
-	</p>
+	</p><br/>
 beginning to upgrade to HTTP 1.0</body>
