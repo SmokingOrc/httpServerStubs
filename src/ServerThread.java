@@ -5,6 +5,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.StringTokenizer;
 
@@ -13,7 +14,7 @@ import static java.lang.Thread.sleep;
 
 public class ServerThread implements Runnable {
 
-	public static final String headerServer = "Server: ";
+	public static final String headerServer = "Server: Java HTTP Server "+ Server.SERVER_HTTP_VERSION;
 	public static final String headerContentLength = "Content-Length: ";
 	public static final String headerContentLang = "Content-Language: de";
 	public static final String headerConnection = "Connection: close";
@@ -26,6 +27,7 @@ public class ServerThread implements Runnable {
 	private Socket ClientSocket;
 	private BufferedReader is;
 	private OutputStream os;
+	private PrintWriter out = null;
 
 	public ServerThread(Socket ClientSocket, LoggingThread loggingThread, String documentRoot, boolean logging) {
 		this.ClientSocket = ClientSocket;
@@ -47,6 +49,8 @@ public class ServerThread implements Runnable {
 				is = new BufferedReader(new InputStreamReader(ClientSocket.getInputStream()));
 				//DataOutputStream for sending binary files (Byte[])
 				os = new DataOutputStream(ClientSocket.getOutputStream());
+				//get character output stream to client (for headers)
+				out = new PrintWriter(ClientSocket.getOutputStream());
 
 				readCommand=is.readLine();
 				System.out.println(readCommand);
@@ -69,6 +73,9 @@ public class ServerThread implements Runnable {
 			//Switch read in Command from Tokens
 			switch (cmd.get(0)){
 				case "GET":// in case of GET Command
+				case "HEADER": //in case of HEADER Command
+					//get the file's MIME content type
+
 					if (cmd.get(1).equals("/")){ // If request is index.html
 						File file = new File(String.valueOf(documentRoot), "\\Index.html");
 						int fileLength = (int) file.length();
@@ -82,13 +89,16 @@ public class ServerThread implements Runnable {
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
-					} else{ //Checking GET plus requested FILEPATH
+					} else if(cmd.get(0).equals("GET")){ //Checking GET plus requested FILEPATH
+						String content = getContentType(cmd.get(1));
+
 						File file = new File(String.valueOf(documentRoot), cmd.get(1));
 						int fileLength = (int) file.length();
 
 						protocol(cmd.get(0) +" "+ file.toString()); //Logging for Protocol
-						//if (isValidFile(file.toString())) {		// isValid für HTTP >0.9
+						if (isValidFile(file.toString()) && !cmd.get(1).endsWith("/")) {		// isValid für HTTP 1.0
 							try {
+								confirmation(out, content, fileLength);
 								// readFIle for Streaming
 								byte[] fileData = readFileData(file, fileLength);
 								os.write(fileData, 0, fileLength);
@@ -96,16 +106,17 @@ public class ServerThread implements Runnable {
 							} catch (IOException e) {
 								e.printStackTrace();
 							}
-						//}else {
-						//	closeConnection();
-						//}
+						}else {
+							//inform client file doesn't exist
+							fileNotFound(out, cmd.get(1));
+							closeConnection();
+						}
 					}
-					closeConnection();
 					break; // Ending GET
-				default: closeConnection();// always closing Connection
-
+				default:notImplemented(out, cmd.get(0)); // If Request-method is not Implemented
 			}
 
+			closeConnection();
 		} while (connected);    //do until connection is closed
 	}
 
@@ -114,9 +125,10 @@ public class ServerThread implements Runnable {
 	 */
 	private void closeConnection() {
 		try {
-			ClientSocket.close();
 			is.close();
 			os.close();
+			out.close();
+			ClientSocket.close();
 			System.out.println("connection closed");
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -155,7 +167,97 @@ public class ServerThread implements Runnable {
 		return false;
 	}
 
+	/*
+	Upgrade for HTTP 1.0
 
+	 */
+	/**
+	 * getContentType returns the proper MIME content type
+	 * according to the requested file's extension.
+	 *
+	 * @param fileRequested File requested by client
+	 */
+	private String getContentType(String fileRequested)
+	{
+		if (fileRequested.endsWith(".htm") ||
+				fileRequested.endsWith(".html"))
+		{
+			return "text/html";
+		}
+		else if (fileRequested.endsWith(".gif"))
+		{
+			return "image/gif";
+		}
+		else if (fileRequested.endsWith(".jpg") ||
+				fileRequested.endsWith(".jpeg"))
+		{
+			return "image/jpeg";
+		}
+		else if (fileRequested.endsWith(".class") ||
+				fileRequested.endsWith(".jar"))
+		{
+			return "applicaton/octet-stream";
+		}
+		else
+		{
+			return "text/plain";
+		}
+	}
+
+	/**
+	 * fileNotFound informs client that requested file does not
+	 * exist.
+	 *
+	 * @param out Client output stream
+	 * @param file File requested by client
+	 */
+	private void fileNotFound(PrintWriter out, String file)
+	{
+		//send file not found HTTP headers
+		out.println("HTTP/1.0 404 File Not Found");
+		out.println(headerServer);
+		out.println("Date: " + new Date());
+		out.println(headerContentType +"text/html");
+		out.println();
+		out.println("<HTML>");
+		out.println("<HEAD><TITLE>File Not Found</TITLE>" +
+				"</HEAD>");
+		out.println("<BODY>");
+		out.println("<H2>404 File Not Found: " + file + "</H2>");
+		out.println("</BODY>");
+		out.println("</HTML>");
+		out.flush();
+
+	}
+
+	private void notImplemented(PrintWriter out, String method){
+		//send Not Implemented message to client
+		out.println("HTTP/1.0 501 Not Implemented");
+		out.println(headerServer);
+		out.println("Date: " + new Date());
+		out.println(headerContentType + "text/html");
+		out.println(); //blank line between headers and content
+		out.println("<HTML>");
+		out.println("<HEAD><TITLE>Not Implemented</TITLE>" +
+				"</HEAD>");
+		out.println("<BODY>");
+		out.println("<H2>501 Not Implemented: " + method +
+				" method.</H2>");
+		out.println("</BODY></HTML>");
+		out.flush();
+	}
+
+	private void confirmation(PrintWriter out, String content, int fileLength){
+		//send HTTP headers
+		out.println("HTTP/1.0 200 OK");
+		out.println(headerServer);
+		out.println("Date: " + new Date());
+		out.println(headerContentType + content);
+		out.println(headerContentLength + fileLength);
+		out.println(); //blank line between headers and content
+		out.flush(); //flush character output stream buffer
+
+	}
 
 	/**
 	 * @param logString Synchronized method to write String into logfile
