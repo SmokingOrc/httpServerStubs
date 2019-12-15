@@ -17,13 +17,14 @@ public class Server {
 
 	public static void main(String [] args)
 	{
-		// Input Server port & dokument Root
+		/* Input Server port & dokument Root
 		Scanner in = new Scanner(System.in);
 		System.out.println("Enter Portnummer:");
 		SERVER_PORT = in.nextInt();
 		//Scanner in2 = new Scanner(System.in);
 		//System.out.println("Enter Document Root(ae. .\\root ) : ");
-		//documentRoot = in2.nextLine();
+		documentRoot = in2.nextLine();
+		*/
 		try {
 			ServerSocket srvSocket = new ServerSocket(Server.SERVER_PORT);
 			System.out.println("HTTP server running at port: " + Server.SERVER_PORT + ", documentRoot = " + documentRoot );
