@@ -107,15 +107,12 @@ public class ServerThread implements Runnable {
 						File file = new File(String.valueOf(documentRoot), "\\Index.html");
 						int fileLength = (int) file.length();
 						protocol(cmd.get(0) +" "+ documentRoot+cmd.get(1)); // Logging for Protocol
-
-						try {
-							// readFIle for Streaming
-							byte[] fileData = readFileData(file, fileLength);
-							os.write(fileData, 0, fileLength);
-							os.flush();
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
+                        String content = getContentType(file.toString());
+                        try {
+                            fileResponseHandler(HTTP_OK, content, file.toString(), fileLength);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
 					} else if(cmd.get(0).equals("GET")){ //Checking GET plus requested FILEPATH
 						String content = getContentType(cmd.get(1));
 
