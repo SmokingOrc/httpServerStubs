@@ -6,6 +6,8 @@ import java.nio.file.Paths;
 import java.sql.Timestamp;
 import java.util.*;
 
+import static java.nio.file.Files.probeContentType;
+
 
 public class ServerThread implements Runnable {
 
@@ -29,6 +31,7 @@ public class ServerThread implements Runnable {
 	private Socket ClientSocket;
 	private BufferedReader is;
 	private OutputStream os;
+	private String uri;
 
 	public ServerThread(Socket ClientSocket, LoggingThread loggingThread, String documentRoot, boolean logging) {
 		this.ClientSocket = ClientSocket;
@@ -37,7 +40,7 @@ public class ServerThread implements Runnable {
 		this.loggingThread = loggingThread;
 	}
 	
-	public void run() {
+	public synchronized void run() {
 		// TODO Implement HTTP v0.9, just GET - the available files to the server are given by ServerFiles.files
 		String readCommand="";
 
@@ -54,82 +57,90 @@ public class ServerThread implements Runnable {
 				readCommand=is.readLine();
 				System.out.println(readCommand);
 
+
+
+
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			//StringTokenizer to get tokens into Array
-			StringTokenizer st = new StringTokenizer(readCommand, " ");
-			// create ArrayList object
-			List<String> cmd = new ArrayList<String>();
 
-			while(st.hasMoreTokens()) {
+			StringTokenizer st = new StringTokenizer(readCommand);
 
-				cmd.add(st.nextToken());
-			}
-			//System.out.println(cmd.get(0));
-			//System.out.println(cmd.get(1));
-			/*
-			header = new HashMap<String, String>();
-			String line = null;
-			int c = 0;
-			while (c < 30 ) {
-				try {
-					line = is.readLine();
-				} catch (IOException e) {
-					e.printStackTrace();
-				}
-//				System.out.println(line.length());
-				if (line.length() >= 1){
-					int p = line.indexOf(':');
-					String key, value;
-					key = line.substring(0, p + 1).trim().toLowerCase();
-					value = line.substring(p + 1).trim();
-					header.put(key, value);
-					System.out.println(line + " | Key: " + key+ " Value: " + value);
-					c++;
-				}
-				c++;
-			}
-			for (String key : header.keySet()){
-				if (key.equals("connection:")){
-					if (header.get(key).equals("keep-alive")){
-						holdConnection = true;
-					}
-				}
-			}
-				*/
+			String methode = st.nextToken();
+			uri = st.nextToken();
+			String version = st.nextToken();
+
+
+
+
+			System.out.println(holdConnection);
+
+
+
 			//Switch read in Command from Tokens
-			switch (cmd.get(0)){
+			switch (methode){
 				case "GET":// in case of GET Command
 				case "HEAD": //in case of HEADER Command
 
-					if (cmd.get(1).equals("/")){ // If request is index.html
+					/*
+					Read in Header fields
+					 */
+
+					header = new HashMap<String, String>();
+					String line = null;
+					try {
+						while((line = is.readLine()).length() != 0){
+							System.out.println(line);
+							int p = line.indexOf(':');
+							String key, value;
+							key = line.substring(0, p + 1).trim().toLowerCase();
+							value = line.substring(p + 1).trim();
+							header.put(key, value);
+							System.out.println(line + " | Key: " + key+ " Value: " + value);
+						}
+					} catch (IOException e) {
+						e.printStackTrace();
+					}
+					// find Header field connection and read value for keep-alive
+					for (String key : header.keySet()){
+						if (key.equals("connection:")){
+							if (header.get(key).equals("keep-alive")){
+								holdConnection = true;
+							}else{
+								holdConnection = false;
+							}
+						}
+					}
+					if (uri.equals("/")){ // If request is index.html
 						File file = new File(String.valueOf(documentRoot), "\\Index.html");
 						int fileLength = (int) file.length();
-						protocol(cmd.get(0) +" "+ documentRoot+cmd.get(1)); // Logging for Protocol
-                        String content = getContentType(file.toString());
+						protocol(methode +" "+ documentRoot+uri); // Logging for Protocol
                         try {
-                            fileResponseHandler(HTTP_OK, content, file.toString(), fileLength);
+							String contentType = probeContentType(file.toPath());
+							fileResponseHandler(HTTP_OK, contentType, file.toString(), fileLength);
                         } catch (IOException e) {
                             e.printStackTrace();
                         }
-					} else if(cmd.get(0).equals("GET")){ //Checking GET plus requested FILEPATH
-						String content = getContentType(cmd.get(1));
+					} else if(methode.equals("GET")){ //Checking GET plus requested FILEPATH
 
-						File file = new File(String.valueOf(documentRoot), cmd.get(1));
+						File file = new File(String.valueOf(documentRoot), uri);
 						int fileLength = (int) file.length();
 
-						protocol(cmd.get(0) +" "+ file.toString()); //Logging for Protocol
-						if (isValidFile(file.toString()) && !cmd.get(1).endsWith("/")) {		// isValid für HTTP 1.0
+						protocol(methode +" "+ file.toString()); //Logging for Protocol
+						if (isValidFile(file.toString()) && !uri.endsWith("/")) {		// isValid für HTTP 1.0
 							try {
-								fileResponseHandler(HTTP_OK, content, file.toString(), fileLength);
+								String contentType = probeContentType(file.toPath());
+
+								fileResponseHandler(HTTP_OK, contentType, file.toString(), fileLength);
 							} catch (IOException e) {
 								e.printStackTrace();
 							}
 						}else {
 							//inform client file doesn't exist
 							try {
-								fileResponseHandler(HTTP_NOTFOUND, content, file.toString(), fileLength);
+								String contentType = probeContentType(file.toPath());
+
+								fileResponseHandler(HTTP_NOTFOUND, contentType, file.toString(), fileLength);
 							} catch (IOException e) {
 								e.printStackTrace();
 							}
@@ -139,52 +150,69 @@ public class ServerThread implements Runnable {
 					break; // Ending GET
 				case "POST":
 
-
-
-
 					try {
+						String headerLine = null;
+						while((headerLine = is.readLine()).length() != 0){
+							System.out.println(headerLine);
+							// find Header field connection and read value for keep-alive
 
-						if (is.ready()) {
-							String data = is.readLine();
-								System.out.println(data);
-								//byte[] data = is.;
-								String responsePOST = "<html><body>";
-									//if (content.equals("application/x-www-form-urlencoded")){
-									StringTokenizer inputs = new StringTokenizer(data,"&");
-									while (inputs.hasMoreTokens()){
-										StringTokenizer input = new StringTokenizer(inputs.nextToken(),"=");
-										responsePOST += "<p> " + "Recieved form variable with name [" + input.nextToken() + "] and value [" + input.nextToken() + "]"+ Server.CRLF;
-									}
-									responsePOST += "</body></html>" + Server.CRLF;
+								if (headerLine.equals("Connection: keep-alive")){
+									holdConnection = true;
+								}
+							System.out.println(holdConnection);
 
-									os.write(responsePOST.getBytes());
-
-
-
-
-						}else{
-							notImplemented(HTTP_INTERNALERROR, cmd.get(1));
 						}
+
+						StringBuilder payload = new StringBuilder();
+						while(is.ready()){
+							payload.append((char) is.read());
+						}
+
+
+						System.out.println(payload);
+						System.out.println("Payload data is: "+payload.toString());
+						String postData = payload.toString();
+						String[] stringArray = postData.split("=");
+
+						String responsePOST = "<html><body>";
+						String firstName = stringArray[0];
+						String lastNameReal = stringArray[2];
+
+						String combo = stringArray[1];
+
+						String[] stringArray2 = combo.split("&");
+						String firstNameReal = stringArray2[0];
+						String lastName = stringArray2[1];
+
+						System.out.println(firstName);
+						System.out.println(firstNameReal);
+						System.out.println(lastName);
+						System.out.println(lastNameReal);
+
+						responsePOST += "<p> " + "Recieved form variable with name [" + firstName + "] and value [" + firstNameReal + "]"+ Server.CRLF;
+						responsePOST += "<p> " + "Recieved form variable with name [" + lastName + "] and value [" + lastNameReal + "]"+ Server.CRLF;
+						responsePOST += "</body></html>" + Server.CRLF;
+						os.write(responsePOST.getBytes());
+
+
+
+
+
+						break; // ending Post request
 
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
-					System.out.println(cmd.get(0) + cmd.get(1)+ cmd.get(2));
-					/*try {
-						handlePOST(cmd.get(1), cmd.get(1).length());
-					} catch (IOException e) {
-						e.printStackTrace();
-					}*/
-				break;
 				default:
 					try {
-						notImplemented(HTTP_NOTIMPLEMENTED, cmd.get(0)); // If Request-method is not Implemented
+						notImplemented(HTTP_NOTIMPLEMENTED, methode); // If Request-method is not Implemented
 					} catch (IOException e) {
 						e.printStackTrace();
 					}
 			}
-
-			closeConnection();
+			if (!holdConnection) {
+				closeConnection();
+			}
 		} while (connected);    //do until connection is closed
 	}
 
@@ -206,24 +234,6 @@ public class ServerThread implements Runnable {
 		// CASE "GET" und "Head" --> "/" ist index html...
 		// uri mit " " durch %20
 	/**
-	 * Method to send Response
-	 */
-
-	private byte[] readFileData(File file, int fileLength) throws IOException {
-		FileInputStream fileIn = null;
-		byte[] fileData = new byte[fileLength];
-
-		try {
-			fileIn = new FileInputStream(file);
-			fileIn.read(fileData);
-		} finally {
-			if (fileIn != null)
-				fileIn.close();
-		}
-
-		return fileData;
-	}
-	/**
 		IsValid -Funktion für beginn HTTP: 1.0// isValid funktion --> bsp. "/images/bild.png" ersetzen / durch "\\"
 	*/
 	 public boolean isValidFile (String valid) {
@@ -238,39 +248,6 @@ public class ServerThread implements Runnable {
 	Upgrade for HTTP 1.0
 
 	 */
-	/**
-	 * getContentType returns the proper MIME content type
-	 * according to the requested file's extension.
-	 *
-	 * @param fileRequested File requested by client
-	 */
-	private String getContentType(String fileRequested)
-	{
-		if (fileRequested.endsWith(".htm") ||
-				fileRequested.endsWith(".html"))
-		{
-			return "text/html";
-		}
-		else if (fileRequested.endsWith(".gif"))
-		{
-			return "image/gif";
-		}
-		else if (fileRequested.endsWith(".jpg") ||
-				fileRequested.endsWith(".jpeg"))
-		{
-			return "image/jpeg";
-		}
-		else if (fileRequested.endsWith(".class") ||
-				fileRequested.endsWith(".jar"))
-		{
-			return "applicaton/octet-stream";
-		}
-		else
-		{
-			return "text/plain";
-		}
-	}
-
 	/**
 	 * fileNotFound informs client that requested file does not
 	 * exist.
@@ -305,25 +282,6 @@ public class ServerThread implements Runnable {
 				" method.</H2>";
 		os.write(response.getBytes());
 		os.flush();
-	}
-	private void handlePOST(String content, int lenght) throws IOException{
-		char[] data = new char[lenght];
-		String responsePOST = "<html><body>";
-		if (is.ready()){
-			is.read(data, 0, lenght);
-
-			//if (content.equals("application/x-www-form-urlencoded")){
-				StringTokenizer inputs = new StringTokenizer(String.valueOf(data),"&");
-				while (inputs.hasMoreTokens()){
-					StringTokenizer input = new StringTokenizer(inputs.nextToken(),"=");
-					responsePOST += "<p> " + "Recieved form variable with name [" + input.nextToken() + "] and value [" + input.nextToken() + "]"+ Server.CRLF;
-					responsePOST += "</body></html>" + Server.CRLF;
-				}
-			/*} else{
-				notImplemented(HTTP_INTERNALERROR, content);
-			}
-			*/
-		};
 	}
 
 	/**
