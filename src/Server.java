@@ -6,7 +6,7 @@ public class Server {
 
 	public static int SERVER_PORT		= 80;
 	public static final String SERVER_STRING = "My Little Pony HTTP Server";
-	public static final String SERVER_HTTP_VERSION = "1.0";
+	public static final String SERVER_HTTP_VERSION = "1.1";
 	public static final String CRLF = "\r\n";
 	public static String documentRoot = ".\\wwwroot";
 	private static boolean logging = true;
