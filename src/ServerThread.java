@@ -17,9 +17,7 @@ public class ServerThread implements Runnable {
 	public static final String headerConnection = "Connection: close";
 	public static final String headerContentType = "Content-Type: ";
 	//Some HTTP response status codes
-	public static final String HTTP_OK = "200 OK", HTTP_REDIRECT = "301 Moved Permanently",
-			HTTP_FORBIDDEN = "403 Forbidden", HTTP_NOTFOUND = "404 Not Found",
-			HTTP_BADREQUEST = "400 Bad Request", HTTP_INTERNALERROR = "500 Internal Server Error",
+	public static final String HTTP_OK = "200 OK",  HTTP_NOTFOUND = "404 Not Found",
 			HTTP_NOTIMPLEMENTED = "501 Not Implemented";
 	private Path documentRoot;
 	private boolean logging;
@@ -60,11 +58,11 @@ public class ServerThread implements Runnable {
                 StringTokenizer st = new StringTokenizer(readCommand);
 
                 String method = st.nextToken(); // get Request method
-                uri = st.nextToken();
-                String version = st.nextToken();
+                uri = st.nextToken(); // get uri
+                String version = st.nextToken(); // Get HTTP Version
 
 
-                //Switch read in methode from Tokens
+                //Switch read in method from Tokens
                 switch (method){
                     case "GET":// in case of GET Command
                     case "HEAD": //in case of HEADER Command
@@ -76,7 +74,6 @@ public class ServerThread implements Runnable {
                         header = new HashMap<String, String>();
                         String line = null;
                             while((line = is.readLine()).length() != 0){
-                              //  System.out.println(line);
                                 int p = line.indexOf(':');
                                 String key, value;
                                 key = line.substring(0, p + 1).trim().toLowerCase();
@@ -114,6 +111,7 @@ public class ServerThread implements Runnable {
                             int fileLength = (int) file.length();
 
                             protocol(method +" "+ file.toString()); //Logging for Protocol
+
                             if (isValidFile(file.toString()) && !uri.endsWith("/")) {		// isValid für HTTP 1.0
                                     String contentType = probeContentType(file.toPath());
 
@@ -126,7 +124,6 @@ public class ServerThread implements Runnable {
 
                             }
                         }
-                        //holdConnection = false;
                         break; // Ending GET
                     case "POST":
 
@@ -163,8 +160,8 @@ public class ServerThread implements Runnable {
                             System.out.println(lastName);
                             System.out.println(lastNameReal);
 
-                            responsePOST += "<p> " + "Recieved form variable with name [" + firstName + "] and value [" + firstNameReal + "]"+ Server.CRLF;
-                            responsePOST += "<p> " + "Recieved form variable with name [" + lastName + "] and value [" + lastNameReal + "]"+ Server.CRLF;
+                            responsePOST += "<p> " + "Recieved form variable with name [" + firstName + "] and value [" + firstNameReal + "] </p>"+ Server.CRLF;
+                            responsePOST += "<p> " + "Recieved form variable with name [" + lastName + "] and value [" + lastNameReal + "]</p>"+ Server.CRLF;
                             responsePOST += "</body></html>" + Server.CRLF;
                             os.write(responsePOST.getBytes());
 
